@@ -1,5 +1,5 @@
-﻿/*
-Made by b0red_man
+/*
+Made by b0red_man & e^ipi
 Project started on 10/11/2024
 
 Alot of this code has been taken from dolphSol Macro
@@ -222,6 +222,63 @@ applyNewUIOptions(){
     }
 }
 
+webhookPost(data := 0){
+    data := data ? data : {}
+
+    url := options.webhookLink
+
+    if (data.pings){
+        data.content := data.content ? data.content " <@" options.DiscordUserID ">" : "<@" options.DiscordUserID ">"
+    }
+
+    payload_json := "
+		(LTrim Join
+		{
+			""content"": """ data.content """,
+			""embeds"": [{
+                " (data.embedAuthor ? """author"": {""name"": """ data.embedAuthor """" (data.embedAuthorImage ? ",""icon_url"": """ data.embedAuthorImage """" : "") "}," : "") "
+                " (data.embedTitle ? """title"": """ data.embedTitle """," : "") "
+				""description"": """ data.embedContent """,
+                " (data.embedThumbnail ? """thumbnail"": {""url"": """ data.embedThumbnail """}," : "") "
+                " (data.embedImage ? """image"": {""url"": """ data.embedImage """}," : "") "
+                " (data.embedFooter ? """footer"": {""text"": """ data.embedFooter """}," : "") "
+				""color"": """ (data.embedColor ? data.embedColor : 0) """
+			}]
+		}
+		)"
+
+    if ((!data.embedContent && !data.embedTitle) || data.noEmbed)
+        payload_json := RegExReplace(payload_json, ",.*""embeds.*}]", "")
+
+
+    objParam := {payload_json: payload_json}
+
+    for i,v in (data.files ? data.files : []) {
+        objParam["file" i] := [v]
+    }
+
+    try {
+        CreateFormData(postdata, hdr_ContentType, objParam)
+
+        WebRequest := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+        WebRequest.Open("POST", url, true)
+        WebRequest.SetRequestHeader("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko")
+        WebRequest.SetRequestHeader("Content-Type", hdr_ContentType)
+        WebRequest.SetRequestHeader("Pragma", "no-cache")
+        WebRequest.SetRequestHeader("Cache-Control", "no-cache, no-store")
+        WebRequest.SetRequestHeader("If-Modified-Since", "Sat, 1 Jan 2000 00:00:00 GMT")
+        WebRequest.Send(postdata)
+        WebRequest.WaitForResponse()
+    } catch e {
+        ; MsgBox, 0, Webhook Error, % "An error occurred while creating the webhook data: " e
+        return
+    }
+}
+
+CreateFormData(ByRef retData, ByRef retHeader, objParam) {
+	New CreateFormData(retData, retHeader, objParam)
+}
+
 createMainGUI() {
     global
     Gui main: New
@@ -369,20 +426,40 @@ containsText(x, y, width, height, text) {
     }
 }
 
+getText(ByRef OutputVar := "",x:="",y:="",w:="",h:="") {
+    pbm := Gdip_BitmapFromScreen(x "|" y "|" w "|" h)
+    pbm := Gdip_ResizeBitmap(pbm,500,500,true)
+    OutputVar := ocrFromBitmap(pbm)
+    Gdip_DisposeBitmap(pbm)
+}
+
+detectFish() {
+    getRobloxPos(x,y,w,h)
+    getText(fishtext, w*0.33, h*0.67, (w*0.67)-(w*0.33),(h*0.79)-(h*0.67))
+    Highlight(w*0.33, h*0.79, (w*0.67)-(w*0.33),(h*0.79)-(h*0.67))
+    fishweight := RegExReplace(fishtext, "\D")
+    if (fishweight && fishweight/10 >= options.MsgMin) {
+
+    }
+}
+
+getNum(text) {
+
+}
 
 ; V auto fishing 861 594
 
-global ismousedown := 0
+global isMouseDown := 0
 global fishloops := 0
 
 mouseDown() {
-    Click, Down
-    ismousedown := 1
+    SendInput {Click, Down}
+    isMouseDown := 1
 }
 
 mouseUp() {
-    Click, Up
-    ismousedown := 0
+    SendInput {Click, Up}
+    isMouseDown := 0
 }
 
 searchForShake(startX, startY, endX, endY) {
@@ -462,6 +539,8 @@ cast() {
         sleep, 50
         return 1
     } else {
+        SendInput {Click, Up}
+        sleep, 50
         return 0
     }
 }
@@ -550,35 +629,17 @@ SplitRGBColor(RGBColor, ByRef Red, ByRef Green, ByRef Blue)
     Blue := RGBColor & 255
 }
 
-CreateGrayscaleArray(startX, startY, endX) {
-    grayscaleArray := []
-
-    steps := (endX-startX)//5
-    Loop, %steps%
-    {
-        PixelGetColor, color, % (startX + A_Index * 5), startY, RGB
-
-        R := (color >> 16) & 0xFF
-        G := (color >> 8) & 0xFF
-        B := color & 0xFF
-
-        grayValue := 0.299 * R + 0.587 * G + 0.114 * B
-
-        grayValue := grayValue / 255
-
-        grayscaleArray.push(grayValue)
-    }
-
-    return grayscaleArray
+ReAlignCamera() {
+    rotateCameraMode()
+    Sleep, 1500
+    rotateCameraMode()
 }
 
-GrayScaleArrayToClick(array) {
+global camFollowMode := 0
 
-}
-;searchForShake(370, 100, 1600, 900)
 
-handleAutoFish() {
-    getRobloxPos(x,y,w,h)
+rotateCameraMode(){
+    ; Initialize retry counter
 
     screenCenterX := 960
     screenCenterY := 540
@@ -593,27 +654,180 @@ handleAutoFish() {
         screenCenterY := A_ScreenHeight // 2
     }
 
-    minigamestarted := 0
+    Xcoord := Floor(screenCenterX + (65/1920)*screenCenterX*2)
+    Ycoord := Floor(screenCenterY - (237/1920)*screenCenterX*2)
+    Width := Floor((190/1920) * screenCenterX*2)
+    Height := Floor((70/1920) * screenCenterY*2)
+
+    YMove := Floor(Ycoord+(Height/2))
+
+    static retryCount := 0
+    maxRetries := 5 ; Set the maximum number of retries
+
+    ; Update to the new camera mode
+    camFollowMode := !camFollowMode
+    mode := camFollowMode ? "Follow" : "Default"
+
+    SendInput {Esc}
+    Sleep, 300
+    SendInput {Tab}
+    Sleep, 500
+    MouseMove, Xcoord, YMove
+    Sleep, 300
+    SendInput {Right}
+    Sleep, 150
+    SendInput {Right}
+    Sleep, 150
+
+    ; If enabled, use OCR to confirm the camera mode change
+
+    while !(containsText(Xcoord, Ycoord, Width, Height, mode)) {
+
+        if (retryCount >= maxRetries) {
+            camFollowMode := !camFollowMode ; Reset to previous state
+            retryCount := 0 ; Reset retry counter for the next call
+            return
+        }
+
+        SendInput {Right}
+        Sleep, 300
+
+        retryCount++
+    }
+    MouseMove, 0, screenCenterY
+    SendInput {Esc}
+    Sleep, 250
+
+    ; Reset retry counter after successful execution
+    retryCount := 0
+}
+
+handleAutoFish() {
+    getRobloxPos(x, y, w, h)
+    global minigameStarted := 0, minigameCompletion := 0, failureTick := 0
+    global isMouseDown := 0, timeHeld := 0
+    global sliderLengthCalculated := 0, sliderLength := 0, arrowPos := 0 sliderCenterPos := 0
+
     cast()
-    fished := 0
+
     Loop {
-        test := screenCenterX+20
+        Sleep, 10
+        PixelSearch, fishPos,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x5B4A43, 1, Fast
+        if (fishPos) {
+            if (!sliderLengthCalculated) {
+                ; Detect slider length
+                PixelSearch, arrowPosLeft,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x878584, 1, Fast
+                SendInput {Click, Down}
+                Sleep, 150
+                PixelSearch, arrowPosRight,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x878584, 1, Fast
+                SendInput {Click, Up}
 
-        if (CheckPixelColor(0xFFFFFF, test, options.AFMiddle, 10)) {
-            fished := 1
-            loop {
-                bar = CreateGrayscaleArray(options.AFLeft, options.AFMiddle, options.AFRight)
+                sliderLength := arrowPosRight - arrowPosLeft
+                sliderLengthCalculated := 1
             }
-        } else if (!fished) {
 
+            minigameStarted := 1
+
+            PixelSearch, arrowPos,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x878584, 1, Fast
+
+
+            if (isMouseDown) {
+                sliderCenterPos := Floor(arrowPos - (sliderLength/2))
+            } else {
+                sliderCenterPos := Floor(arrowPos + (sliderLength/2))
+            }
+
+            if ((A_Index - timeHeld) > 250) {
+                if (isMouseDown) {
+                    mouseUp()
+                    Sleep, (A_Index-timeHeld)/4
+                } else {
+                    mouseDown()
+                    Sleep, (A_Index-timeHeld)/4
+                }
+            }
+
+            if (arrowPos) {
+                distanceToFish := fishPos - arrowPos
+                if ((Abs(distanceToFish) > (sliderLength/2.1)) || (Abs(distanceToFish) < (sliderLength/0.6))) {
+                    moveStep := (distanceToFish > 0) ? 1 : -1
+                    if (!((arrowPos <= options.AFLeft && moveStep < 0) || (arrowPos >= options.AFRight && moveStep > 0))) {
+                        if (moveStep > 0 && !isMouseDown) {
+                            mouseDown()
+                            timeHeld := A_Index
+                            if (sliderCenterPos-fishPos < 0) {
+                                time := Ln(Abs(sliderCenterPos-fishPos))^4
+                                Sleep, %time%
+                            }
+                        } else if (moveStep < 0 && isMouseDown) {
+                            mouseUp()
+                            timeHeld := A_Index
+                            if (sliderCenterPos-fishPos > 0) {
+                                time := Ln(Abs(sliderCenterPos-fishPos))^4
+                                Sleep, %time%
+                            }
+                        }
+                    }
+                } else if ((Abs(distanceToFish) < (sliderLength/2.1)) || (Abs(distanceToFish) > (sliderLength/0.6))) {
+                    moveStep := (distanceToFish > 0) ? 1 : -1
+                    if (!((arrowPos <= options.AFLeft && moveStep < 0) || (arrowPos >= options.AFRight && moveStep > 0))) {
+                        if (moveStep > 0 && !isMouseDown) {
+                            mouseDown()
+                            if (sliderCenterPos-fishPos > 0) {
+                                time := Ln(Abs(sliderCenterPos-fishPos))^3
+                                Sleep, %time%
+                                mouseUp()
+                                Sleep, time/2
+                                timeHeld := A_Index
+                            }
+                        } else if (moveStep < 0 && isMouseDown) {
+                            mouseUp()
+                            if (sliderCenterPos-fishPos < 0) {
+                                time := Ln(Abs(sliderCenterPos-fishPos))^3
+                                Sleep, %time%
+                                mouseDown()
+                                Sleep, time/2
+                                timeHeld := A_Index
+                            }
+                        }
+                    }
+                } else {
+                    if (sliderCenterPos-fishPos < 0) {
+                        Sleep, Ln(Abs(sliderCenterPos-fishPos))^3
+                        mouseUp()
+                        timeHeld := A_Index
+                    } else {
+                        Sleep, Ln(Abs(sliderCenterPos-fishPos))^3
+                        mouseDown()
+                        timeHeld := A_Index
+                    }
+                }
+            } else {
+                Sleep, 15
+            }
         } else {
+            if (minigameStarted) {
+                PixelSearch, fishPos,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x5B4A43, 1, Fast
+                if !(fishPos) {
+                    failureTick += 1
+                    if (failureTick > 10) {
+                        minigameCompletion := 1
+                        minigameStarted := 0
+                    }
+                }
+            } else {
+                ;ShakeSearch
+            }
+        }
+
+        ; Break the loop after 75 seconds or upon minigame completion
+        if ((A_TickCount - l_Start >= 75000 && !minigameStarted) || minigameCompletion) {
             break
         }
-        global fishpos
-        PixelSearch, fishpos,, options.AFLeft,  options.AFMiddle, options.AFRight, options.AFMiddle, 0x5B4A43,1, Fast
-
     }
 }
+
+
 
 handleScreenshot() {
     getRobloxPos(x,y,w,h)
@@ -651,76 +865,7 @@ saveOptions(){ ; Taken from dolphSol
 }
 
 createMainGUI()
-/*
-WaitPixelColor(p_DesiredColor, p_PosX, p_PosY, p_TimeOut=0, p_ColorVariation=0) {
-    SplitRGBColor(p_DesiredColor, red1, green1, blue1)
-    redvar1 := red1 - p_ColorVariation
-    redvar2 := red1 + p_ColorVariation
-    greenvar1 := green1 - p_ColorVariation
-    greenvar2 := green1 + p_ColorVariation
-    bluevar1 := blue1 - p_ColorVariation
-    bluevar2 := blue1 + p_ColorVariation
 
-    l_Start := A_TickCount
-    Loop {
-        PixelGetColor, l_OutputColor, %p_PosX%, %p_PosY%, RGB
-        SplitRGBColor(l_OutputColor, red2, green2, blue2)
-        If (ErrorLevel)
-            Return false
-        If (redvar1 <= red2 && red2 <= redvar2)
-            If (greenvar1 <= green2 && green2 <= greenvar2)
-                If (bluevar1 <= blue2 && blue2 <= bluevar2)
-                    return true
-        If (p_TimeOut) && (A_TickCount - l_Start >= p_TimeOut)
-            Return false
-    }
-}
-
-CheckPixelColor(p_DesiredColor, p_PosX, p_PosY, p_ColorVariation := 0) {
-    SplitRGBColor(p_DesiredColor, red1, green1, blue1)
-
-    redvar1 := red1 - p_ColorVariation
-    redvar2 := red1 + p_ColorVariation
-    greenvar1 := green1 - p_ColorVariation
-    greenvar2 := green1 + p_ColorVariation
-    bluevar1 := blue1 - p_ColorVariation
-    bluevar2 := blue1 + p_ColorVariation
-
-    PixelGetColor, l_OutputColor, %p_PosX%, %p_PosY%, RGB
-    If (ErrorLevel) {
-        return false
-    }
-
-    SplitRGBColor(l_OutputColor, red2, green2, blue2)
-
-    If (redvar1 <= red2 && red2 <= redvar2)
-        If (greenvar1 <= green2 && green2 <= greenvar2)
-            If (bluevar1 <= blue2 && blue2 <= bluevar2)
-                return true
-
-    return false
-}
-
-
-SplitRGBColor(RGBColor, ByRef Red, ByRef Green, ByRef Blue)
-{
-    Red := RGBColor >> 16 & 255
-    Green := RGBColor >> 8 & 255
-    Blue := RGBColor & 255
-} thanks e ipi
-ZoomIn() {
-    Loop, 15
-    {
-        SendInput {WheelUp}
-        sleep, 150
-    }
-    Loop, 5
-    {
-        SendInput {WheelDown}
-        sleep, 150
-    }
-}
-*/
 ; Help Buttons
 
 EnableWebhookToggle: ; Taken from dolphSol
@@ -740,6 +885,7 @@ start() {
     return
 }
 
+F5::ReAlignCamera()
 HandleStart:
     start()
     return
@@ -755,7 +901,8 @@ HighlightCal:
     CalHighlight()
     return
 F1::
-    handleAutoFish()
+    mainLoop()
 F2::ExitApp
 F3::
     handleScreenshot()
+F4::detectFish()
