@@ -1,5 +1,5 @@
 /*
-Made by b0red_man & e^ipi
+Made by b0red_man
 Project started on 10/11/2024
 
 Alot of this code has been taken from dolphSol Macro
@@ -338,20 +338,21 @@ calibrationGUI() {
     Gui Font, s9 norm
     Gui Add, Text, x16 y16 w184 h20, % "Calibration for auto fishing so pro"
     Gui Add, Edit, vAFMiddle x16 y45 w60 h20
-    Gui Add, UpDown, vAFMiddle2 Range1-2000 x60 y45
+    Gui Add, UpDown, vAFMiddleUpDown Range1-2000 x60 y45
     Gui Add, Text, x90 y45, % "Fishing bar Y coord"
 
     Gui Add, Edit, vAFLeft x16 y72 w60 h20
-    Gui Add, UpDown, vAFleft2 Range1-2000 x60 y72
+    Gui Add, UpDown, vAFleftUpDown Range1-2000 x60 y72
     Gui Add, Text, x90 y72, % "X coord left"
 
     Gui Add, Edit, vAFRight x16 y100 w60 h20
-    Gui Add, UpDown, vAFRight2 Range1-2000 x60 y100
+    Gui Add, UpDown, vAFRightUpDown Range1-2000 x60 y100
     Gui Add, Text, x90 y100, % "X coord Right"
 
-    Gui Add, Button, vSaveCalibration gSaveCalButton x40 y135 w120 h25, % "Save Calibration"
-    Gui Add, Button, vHighlightCalibration gHighlightCal x40 y165 w120 h25, % "Highlight Calibration"
-    Gui Add, Button, vCalHelp gHelpCalButton x65 y196 w70 h25, % "Help!"
+    Gui Add, Button, vSaveCalibration gSaveCalButton x15 y135 w175 h25, % "Save Calibration"
+    Gui Add, Button, vHighlightCalibration gHighlightCal x15 y165 w175 h25, % "Highlight Calibration"
+    Gui Add, Button, vCalHelp gHelpCalButton x15 y196 w75 h25, % "Help!"
+    Gui Add, Button, vSelectPos gSelectAutoFishPos x100 y196 w90 h25, % "Select Pos"
 
     Gui Show, w200 h225, Auto Fish Calibration
     updateUIOptions()
@@ -362,6 +363,40 @@ CalHighlight() {
     Highlight(options.AFRight-3, options.AFMiddle-3, 6, 6)
 }
 
+SelectAutoFishPos() {
+
+    global options
+
+    CoordMode, Mouse, Screen
+
+    ToolTip, Move your mouse to the top-left corner and press Q
+    KeyWait, Q, D
+    MouseGetPos, xTopLeft, yTopLeft
+    ToolTip
+
+    options.AFLeft := xTopLeft
+    GuiControl,, AFLeft, %xTopLeft%
+
+    Sleep, 500
+
+    ToolTip, Move your mouse to the bottom-right corner and press Q
+    KeyWait, Q, D
+    MouseGetPos, xBottomRight, yBottomRight
+    ToolTip
+
+    yMiddle := (yTopLeft + yBottomRight) // 2
+
+
+    options.AFRight := xBottomRight
+    options.AFMiddle := yMiddle
+
+    GuiControl,, AFRight, %xBottomRight%
+    GuiControl,, AFMiddle, %yMiddle%
+
+    CoordMode, Mouse, Client
+
+    saveAFCal()
+}
 saveAFCal() {
     GuiControlGet, middle,, AfMiddle
     GuiControlGet, left,, AFLeft
