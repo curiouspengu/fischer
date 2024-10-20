@@ -10,8 +10,8 @@ Alot of this code has been taken from dolphSol Macro
 #SingleInstance, force
 
 SetWorkingDir, % A_ScriptDir "\lib"
-CoordMode, Pixel, Client
-CoordMode, Mouse, Client
+CoordMode, Pixel, Screen
+CoordMode, Mouse, Screen
 
 #Include *i %A_ScriptDir%\lib
 #Include *i ocr.ahk
@@ -341,6 +341,7 @@ calibrationGUI() {
     Gui Add, UpDown, vAFMiddleUpDown Range1-2000 x60 y45
     Gui Add, Text, x90 y45, % "Fishing bar Y coord"
 
+     /*
     Gui Add, Edit, vAFLeft x16 y72 w60 h20
     Gui Add, UpDown, vAFleftUpDown Range1-2000 x60 y72
     Gui Add, Text, x90 y72, % "X coord left"
@@ -348,62 +349,45 @@ calibrationGUI() {
     Gui Add, Edit, vAFRight x16 y100 w60 h20
     Gui Add, UpDown, vAFRightUpDown Range1-2000 x60 y100
     Gui Add, Text, x90 y100, % "X coord Right"
+    */
 
-    Gui Add, Button, vSaveCalibration gSaveCalButton x15 y135 w175 h25, % "Save Calibration"
-    Gui Add, Button, vHighlightCalibration gHighlightCal x15 y165 w175 h25, % "Highlight Calibration"
-    Gui Add, Button, vCalHelp gHelpCalButton x15 y196 w75 h25, % "Help!"
-    Gui Add, Button, vSelectPos gSelectAutoFishPos x100 y196 w90 h25, % "Select Pos"
+    Gui Add, Button, vSaveCalibration gSaveCalButton x15 y85 w175 h25, % "Save Calibration"
+    Gui Add, Button, vHighlightCalibration gHighlightCal x15 y115 w175 h25, % "Highlight Calibration"
+    Gui Add, Button, vCalHelp gHelpCalButton x15 y146 w75 h25, % "Help!"
+    Gui Add, Button, vSelectPos gSelectAutoFishPos x100 y146 w90 h25, % "Select Pos"
 
-    Gui Show, w200 h225, Auto Fish Calibration
+    Gui Show, , Auto Fish Calibration
     updateUIOptions()
 }
 
+CalculateFishingBounds(ByRef xL := "", ByRef xR := "") {
+    getRobloxPos(rX, rY, rW, rH)
+
+    xL := Floor(rX+rW*0.25)
+    xR := Floor(rX+rW*0.75)
+}
 CalHighlight() {
-    Highlight(options.AFLeft-3, options.AFMiddle-3, 6, 6)
-    Highlight(options.AFRight-3, options.AFMiddle-3, 6, 6)
+    CalculateFishingBounds(AFLeft, AFRight)
+    Highlight(AFLeft-3, options.AFMiddle-3, 6, 6)
+    Highlight(AFRight-3, options.AFMiddle-3, 6, 6)
 }
 
 SelectAutoFishPos() {
 
     global options
 
-    CoordMode, Mouse, Screen
-
-    ToolTip, Move your mouse to the top-left corner and press Q
+    ToolTip, Move your mouse to the center of the fishing bar and press Q
     KeyWait, Q, D
-    MouseGetPos, xTopLeft, yTopLeft
+    MouseGetPos, , yValue
     ToolTip
 
-    options.AFLeft := xTopLeft
-    GuiControl,, AFLeft, %xTopLeft%
-
-    Sleep, 500
-
-    ToolTip, Move your mouse to the bottom-right corner and press Q
-    KeyWait, Q, D
-    MouseGetPos, xBottomRight, yBottomRight
-    ToolTip
-
-    yMiddle := (yTopLeft + yBottomRight) // 2
-
-
-    options.AFRight := xBottomRight
-    options.AFMiddle := yMiddle
-
-    GuiControl,, AFRight, %xBottomRight%
-    GuiControl,, AFMiddle, %yMiddle%
-
-    CoordMode, Mouse, Client
+    GuiControl,, AFMiddle, %yValue%
 
     saveAFCal()
 }
 saveAFCal() {
     GuiControlGet, middle,, AfMiddle
-    GuiControlGet, left,, AFLeft
-    GuiCOntrolGet, right,, AFRight
     options.AFMiddle := middle
-    options.AFLeft := left
-    options.AFRight := right
     saveOptions()
 }
 
@@ -538,38 +522,34 @@ ZoomIn() {
         SendInput {WheelDown}
 		sleep, 150
 	}
+
+    getRobloxPos(rX, rY, rW, rH)
+
+    MouseMove, rX + rW*0.75, rY + 44 + rH*0.05
+    Sleep, 200
+    MouseClick
+    Sleep, 200
+
+    MouseClickDrag, R, rX + rW*0.75, rY + 44 + rH*0.05, rX + rW*0.75, rY + 444 + rH*0.05
+
 }
 
 cast() {
 	ZoomIn()
     SendInput {Click, Down}
 
-    screenCenterX := 960
-    screenCenterY := 540
-    IfWinExist, %robloxWindowTitle%
-    {
-        WinGetPos, winX, winY, winWidth, winHeight, %robloxWindowTitle%
+    getRobloxPos(winX, winY, winWidth, winHeight)
 
-        screenCenterX := winX + (winWidth // 2)
-        screenCenterY := winY + (winHeight // 2)
-    } else {
-        screenCenterX := A_ScreenWidth // 2
-        screenCenterY := A_ScreenHeight // 2
-    }
+    screenCenterX := winX + (winWidth // 2)
+    screenCenterY := winY + (winHeight // 2)
 
+    Xcoord1 := Floor(screenCenterX + (200/1920)*screenCenterX*2)
+    Xcoord2 := Floor(screenCenterX + (500/1920)*screenCenterX*2)
+    Ycoord := Floor(screenCenterY - (185/1080)*screenCenterY*2)
 
-    Xcoord1 := Floor(screenCenterX + (330/1920)*screenCenterX*2)
-    Xcoord2 := Floor(screenCenterX + (340/1920)*screenCenterX*2)
-    Xcoord3 := Floor(screenCenterX + (435/1920)*screenCenterX*2)
-    Ycoord1 := Floor(screenCenterY + (260/1080)*screenCenterY*2)
-    Ycoord2 := Floor(screenCenterY - (185/1080)*screenCenterY*2)
-    Ycoord3 := FLoor(screenCenterY - (225/1080)*screenCenterY*2)
+    Sleep, 500
 
-    if (CheckPixelLine(0xE0E0E0, Xcoord2, Ycoord2, Xcoord3, Ycoord3, 30, 10000)) {
-        SendInput {Click, Up}
-        sleep, 50
-        return 1
-    } else if (WaitPixelColor(0xE0E0E0, Xcoord3, Ycoord3, 10000, 30)) {
+    if (CheckPixelLine(0xE0E0E0, Xcoord1, Ycoord, Xcoord2, Ycoord, 30, 10000)) {
         SendInput {Click, Up}
         sleep, 50
         return 1
@@ -630,26 +610,43 @@ CheckPixelColor(p_DesiredColor, p_PosX, p_PosY, p_ColorVariation := 0) {
 }
 
 CheckPixelLine(ColorToCheck, x1, y1, x2, y2, Variation := 0, p_Timeout := 0) {
-     ; Calculate the difference between the points
-    dx := Abs(x2 - x1)
-    dy := Abs(y2 - y1)
-    steps := Max(dx, dy)  ; Total number of pixels to check
-    ; Calculate the increments for x and y
-    xIncrement := (x2 - x1) / steps
-    yIncrement := (y2 - y1) / steps
 
-    steps := Ceil(steps / 3)
-    l_Start := A_TickCount
-    ; Loop through each step to get the color along the diagonal
-    Loop {
-        Loop, %steps% {
+    if (y1 != y2) {
+        ; Calculate the difference between the points
+        dx := Abs(x2 - x1)
+        dy := Abs(y2 - y1)
+        steps := Max(dx, dy)  ; Total number of pixels to check
+        ; Calculate the increments for x and y
+        xIncrement := (x2 - x1) / steps
+        yIncrement := (y2 - y1) / steps
+
+        steps := Ceil(steps / 3)
+        l_Start := A_TickCount
+        ; Loop through each step to get the color along the diagonal
+        Loop {
+            Loop, %steps% {
+                If (p_TimeOut) && (A_TickCount - l_Start >= p_TimeOut) {
+                    return 0
+                }
+
+                x := Round(x1 + (A_Index*3) * xIncrement)
+                y := Round(y1 + (A_Index*3) * yIncrement)
+                if (CheckPixelColor(ColorToCheck, x, y, Variation)) {
+                    return 1
+                }
+            }
+        }
+    } else {
+        l_Start := A_TickCount
+
+        Loop {
             If (p_TimeOut) && (A_TickCount - l_Start >= p_TimeOut) {
                 return 0
             }
 
-            x := Round(x1 + (A_Index*3) * xIncrement)
-            y := Round(y1 + (A_Index*3) * yIncrement)
-            if (CheckPixelColor(ColorToCheck, x, y, Variation)) {
+            PixelSearch, colorCheck,, x1, y1, x2, y1, ColorToCheck, Variation, Fast
+
+            if (colorCheck) {
                 return 1
             }
         }
@@ -671,7 +668,6 @@ ReAlignCamera() {
 }
 
 global camFollowMode := 0
-
 
 rotateCameraMode(){
     ; Initialize retry counter
@@ -737,24 +733,42 @@ rotateCameraMode(){
     retryCount := 0
 }
 
+Initialize() {
+    Sleep, 200
+    SendInput {\}
+    SendInput {Right}
+    SendInput {Right}
+    SendInput {Right}
+    Sleep, 50
+    SendInput {Enter}
+    Sleep, 200
+    SendInput {Click}
+}
+
+
 handleAutoFish() {
     getRobloxPos(x, y, w, h)
-    global minigameStarted := 0, minigameCompletion := 0, failureTick := 0
+    CalculateFishingBounds(AFLeft, AFRight)
+    global minigameStarted := 0, minigameCompletion := 0, failureTick := 0, shaking := 0
     global isMouseDown := 0, timeHeld := 0
     global sliderLengthCalculated := 0, sliderLength := 0, arrowPos := 0 sliderCenterPos := 0
 
     cast()
 
     Loop {
-        Sleep, 10
-        PixelSearch, fishPos,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x5B4A43, 1, Fast
+        PixelSearch, fishPos,, AFLeft, options.AFMiddle, AFRight, options.AFMiddle, 0x5B4A43, 1, Fast
         if (fishPos) {
+            if (shaking) {
+                SendInput {\}
+                shaking := 0
+            }
+
             if (!sliderLengthCalculated) {
                 ; Detect slider length
-                PixelSearch, arrowPosLeft,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x878584, 1, Fast
+                PixelSearch, arrowPosLeft,, AFLeft, options.AFMiddle, AFRight, options.AFMiddle, 0x878584, 1, Fast
                 SendInput {Click, Down}
-                Sleep, 150
-                PixelSearch, arrowPosRight,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x878584, 1, Fast
+                Sleep, 250
+                PixelSearch, arrowPosRight,, AFLeft, options.AFMiddle, AFRight, options.AFMiddle, 0x878584, 1, Fast
                 SendInput {Click, Up}
 
                 sliderLength := arrowPosRight - arrowPosLeft
@@ -763,78 +777,29 @@ handleAutoFish() {
 
             minigameStarted := 1
 
-            PixelSearch, arrowPos,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x878584, 1, Fast
+            PixelSearch, arrowPos,, AFLeft, options.AFMiddle, AFRight, options.AFMiddle, 0x878584, 1, Fast
 
 
             if (isMouseDown) {
-                sliderCenterPos := Floor(arrowPos - (sliderLength/2))
+                sliderCenterPos := Floor(arrowPos - (sliderLength/2.1))
             } else {
-                sliderCenterPos := Floor(arrowPos + (sliderLength/2))
-            }
-
-            if ((A_Index - timeHeld) > 250) {
-                if (isMouseDown) {
-                    mouseUp()
-                    Sleep, (A_Index-timeHeld)/4
-                } else {
-                    mouseDown()
-                    Sleep, (A_Index-timeHeld)/4
-                }
+                sliderCenterPos := Floor(arrowPos + (sliderLength/2.1))
             }
 
             if (arrowPos) {
-                distanceToFish := fishPos - arrowPos
-                if ((Abs(distanceToFish) > (sliderLength/2.1)) || (Abs(distanceToFish) < (sliderLength/0.6))) {
-                    moveStep := (distanceToFish > 0) ? 1 : -1
-                    if (!((arrowPos <= options.AFLeft && moveStep < 0) || (arrowPos >= options.AFRight && moveStep > 0))) {
-                        if (moveStep > 0 && !isMouseDown) {
-                            mouseDown()
-                            timeHeld := A_Index
-                            if (sliderCenterPos-fishPos < 0) {
-                                time := Ln(Abs(sliderCenterPos-fishPos))^4
-                                Sleep, %time%
-                            }
-                        } else if (moveStep < 0 && isMouseDown) {
-                            mouseUp()
-                            timeHeld := A_Index
-                            if (sliderCenterPos-fishPos > 0) {
-                                time := Ln(Abs(sliderCenterPos-fishPos))^4
-                                Sleep, %time%
-                            }
-                        }
-                    }
-                } else if ((Abs(distanceToFish) < (sliderLength/2.1)) || (Abs(distanceToFish) > (sliderLength/0.6))) {
-                    moveStep := (distanceToFish > 0) ? 1 : -1
-                    if (!((arrowPos <= options.AFLeft && moveStep < 0) || (arrowPos >= options.AFRight && moveStep > 0))) {
-                        if (moveStep > 0 && !isMouseDown) {
-                            mouseDown()
-                            if (sliderCenterPos-fishPos > 0) {
-                                time := Ln(Abs(sliderCenterPos-fishPos))^3
-                                Sleep, %time%
-                                mouseUp()
-                                Sleep, time/2
-                                timeHeld := A_Index
-                            }
-                        } else if (moveStep < 0 && isMouseDown) {
-                            mouseUp()
-                            if (sliderCenterPos-fishPos < 0) {
-                                time := Ln(Abs(sliderCenterPos-fishPos))^3
-                                Sleep, %time%
-                                mouseDown()
-                                Sleep, time/2
-                                timeHeld := A_Index
-                            }
-                        }
-                    }
-                } else {
-                    if (sliderCenterPos-fishPos < 0) {
-                        Sleep, Ln(Abs(sliderCenterPos-fishPos))^3
-                        mouseUp()
-                        timeHeld := A_Index
-                    } else {
-                        Sleep, Ln(Abs(sliderCenterPos-fishPos))^3
+                if (moveStep != 0) {
+                    if (!isMouseDown) {
                         mouseDown()
-                        timeHeld := A_Index
+                        if (sliderCenterPos-fishPos < 0) {
+                            time := Floor((Log(Abs(sliderCenterPos-fishPos)/A_ScreenWidth*1920))**6)
+                            Sleep, time
+                        }
+                    } else if (isMouseDown) {
+                        mouseUp()
+                        if (sliderCenterPos-fishPos > 0) {
+                            time := Floor((Log(Abs(sliderCenterPos-fishPos)/A_ScreenWidth*1920))**6)
+                            Sleep, time
+                        }
                     }
                 }
             } else {
@@ -842,7 +807,7 @@ handleAutoFish() {
             }
         } else {
             if (minigameStarted) {
-                PixelSearch, fishPos,, options.AFLeft, options.AFMiddle, options.AFRight, options.AFMiddle, 0x5B4A43, 1, Fast
+                PixelSearch, fishPos,, AFLeft, options.AFMiddle, AFRight, options.AFMiddle, 0x5B4A43, 3, Fast
                 if !(fishPos) {
                     failureTick += 1
                     if (failureTick > 10) {
@@ -851,12 +816,21 @@ handleAutoFish() {
                     }
                 }
             } else {
-                ;ShakeSearch
+                if (!shaking) {
+                    SendInput {\}
+                    shaking := 1
+                } else {
+                    SendInput {Down}
+                    SendInput {Enter}
+                }
             }
         }
 
         ; Break the loop after 75 seconds or upon minigame completion
         if ((A_TickCount - l_Start >= 75000 && !minigameStarted) || minigameCompletion) {
+            Sleep, 1000
+            SendInput {Click}
+            shaking := 1
             break
         }
     }
@@ -910,6 +884,7 @@ SendPingHelp:
     MsgBox, % "Send Minimum `n`n All fish that are over the weight you `n entered will be sent through the webhook`n`nPing Minimum`n`n Same thing but it will ping you aswell"
     return
 mainLoop() {
+    Initialize()
     Loop, {
         handleAutoFish()
     }
@@ -920,7 +895,10 @@ start() {
     return
 }
 
-F5::ReAlignCamera()
+PrepLeave() {
+    Initialize()
+    ExitApp
+}
 HandleStart:
     start()
     return
@@ -935,9 +913,7 @@ SaveCalButton:
 HighlightCal:
     CalHighlight()
     return
-F1::
-    mainLoop()
-F2::ExitApp
-F3::
-    handleScreenshot()
+F1::mainLoop()
+F2::PrepLeave()
+F3::handleScreenshot()
 F4::detectFish()
