@@ -1,5 +1,5 @@
 /*
-Made by b0red_man
+Made by b0red_man and e^ipi
 Project started on 10/11/2024
 
 Alot of this code has been taken from dolphSol Macro
