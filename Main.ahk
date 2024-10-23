@@ -18,7 +18,12 @@ CoordMode, Mouse, Screen
 #Include *i Gdip_All.ahk
 #Include *i Gdip_ImageSearch.ahk
 
-Gdip_Startup()
+try {
+	Gdip_Startup()
+} catch e {
+	Msgbox, UNZIP THE FILES YOU NINCOMPOOP
+	ExitApp
+}
 
 global configpath := A_ScriptDir . "\lib\config.ini"
 
