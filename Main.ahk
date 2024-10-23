@@ -791,13 +791,13 @@ handleAutoFish() {
                     if (!isMouseDown) {
                         mouseDown()
                         if (sliderCenterPos-fishPos < 0) {
-                            time := Floor((Log(Abs(sliderCenterPos-fishPos)/A_ScreenWidth*1920))**6)
+                            time := Floor((Log(Abs(sliderCenterPos-fishPos)/A_ScreenWidth*1920))**7)
                             Sleep, time
                         }
                     } else if (isMouseDown) {
                         mouseUp()
                         if (sliderCenterPos-fishPos > 0) {
-                            time := Floor((Log(Abs(sliderCenterPos-fishPos)/A_ScreenWidth*1920))**6)
+                            time := Floor((Log(Abs(sliderCenterPos-fishPos)/A_ScreenWidth*1920))**7)
                             Sleep, time
                         }
                     }
